@@ -1,4 +1,5 @@
-import { REACT_ELEMENT } from "./constants";
+import { REACT_ELEMENT, REACT_FORWARD_REF } from "./constants";
+import { addEvent } from "./event";
 
 function render(VNode, containerDOM) {
   // 将虚拟dom转成真实dom
@@ -12,8 +13,15 @@ function mount(VNode, containerDOM) {
 }
 
 function createDOM(VNode) {
-  const { type, props } = VNode;
+  const { type, props, ref } = VNode;
   let dom;
+  //   debugger;
+  //   console.log(VNode);
+
+  // 处理 forwardRef
+  if (type && type.$$typeof === REACT_FORWARD_REF) {
+    return getDomByForwardRefFunction(VNode);
+  }
 
   // 处理类组件
   if (
@@ -49,13 +57,29 @@ function createDOM(VNode) {
 
   // 将真实dom和虚拟DOM关联
   VNode.dom = dom;
+  // 原生ref标签指向dom
+  ref && (ref.current = dom);
+
+  //   console.log("dom", dom);
 
   return dom;
 }
 
+function getDomByForwardRefFunction(VNode) {
+  let { type, props, ref } = VNode;
+  let renderVNode = type.render(props, ref);
+
+  if (!renderVNode) return null;
+
+  return createDOM(renderVNode);
+}
+
 function getDomByClassComponent(VNode) {
-  let { type, props } = VNode;
+  let { type, props, ref } = VNode;
   let instance = new type(props);
+
+  // 类组件 ref，指向类实例
+  ref && (ref.current = instance);
 
   let renderVNode = instance.render();
   instance.oldVNode = renderVNode;
@@ -80,13 +104,17 @@ function setPropsForDOM(dom, VNodeProps = {}) {
   for (let key in VNodeProps) {
     if (key === "children") continue;
     if (/^on[A-Z].*/.test(key)) {
-      // TODO: 事件处理
+      //   debugger;
+      addEvent(dom, key.toLowerCase(), VNodeProps[key]);
     } else if (key === "style") {
       Object.keys(VNodeProps[key]).forEach((styleName) => {
         dom[key][styleName] = VNodeProps[key][styleName];
       });
+    } else {
+      dom[key] = VNodeProps[key];
     }
   }
+  //   console.log(VNodeProps);
 }
 
 function mountArray(children, parent) {

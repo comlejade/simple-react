@@ -29,6 +29,7 @@ class Updater {
   }
 
   addState(partialState) {
+    // debugger;
     // 记录下来需要更新的state
     this.penddingStates.push(partialState);
     // 对更新进行预处理
